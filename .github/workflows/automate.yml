@@ -8,8 +8,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
+        working-directory: ./flaskenv
         uses: actions/checkout@v2
       - name: Install Python 3
+        working-directory: ./flaskenv
         uses: actions/setup-python@v1
         with:
           python-version: 3.11
@@ -20,4 +22,5 @@ jobs:
           pip install pytest
           pip install -r requirements.txt
       - name: Run tests with pytest
+        working-directory: ./flaskenv
         run: pytest test_app.py
