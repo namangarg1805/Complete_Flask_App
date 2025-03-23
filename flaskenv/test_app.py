@@ -8,7 +8,7 @@ def client():
 
 def test_home(client):
     resp=client.get("/")
-    assert resp.status_code==200
+    assert resp.status_code==201
 
 def test_predict(client):
     test_data={'Gender':"Male", 'Married':"Unmarried",'Credit_History' : "Unclear Debts",'ApplicantIncome':100000,'LoanAmount':2000000}
