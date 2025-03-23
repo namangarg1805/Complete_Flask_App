@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 @app.route(rule="/",methods=["GET"])
 def homepage():
-    return "<h1>Welcome to our app</h1>"
+    return "<h1>Welcome to our app v1</h1>"
 
 pickle_file = open("classifier.pkl","rb")
 model = pickle.load(pickle_file)
