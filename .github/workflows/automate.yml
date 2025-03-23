@@ -4,21 +4,65 @@ on:
     branches:
       - main
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
-      - name: Install Python 3
-        uses: actions/setup-python@v1
+  job1:
+    build:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout Code
+          uses: actions/checkout@v2
+        - name: Install Python 3
+          uses: actions/setup-python@v1
+          with:
+            python-version: 3.11
+        - name: Install dependencies
+          working-directory: ./flaskenv
+          run: |
+            python -m pip install --upgrade pip
+            pip install pytest
+            pip install -r requirements.txt
+        - name: Run tests with pytest
+          working-directory: ./flaskenv
+          run: pytest test_app.py
+  job2:
+      needs: job1
+      runs-on: ubuntu-latest
+      steps:
+      - name: Giving access to the repo
+        uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          python-version: 3.11
-      - name: Install dependencies
-        working-directory: ./flaskenv
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: my-ecr-repo
+          IMAGE_TAG: ${{ github.sha }}
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest
-          pip install -r requirements.txt
-      - name: Run tests with pytest
-        working-directory: ./flaskenv
-        run: pytest test_app.py
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: 752769857260.dkr.ecr.us-east-1.amazonaws.com/flask_app:latest
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: flask_container
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: flask_app_service
+          cluster: flask_app_cluster
+          wait-for-service-stability: true
